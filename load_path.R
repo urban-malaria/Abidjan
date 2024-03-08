@@ -40,7 +40,7 @@ list_of_packages <- c("RColorBrewer", "readr", "haven", "data.table",
                       "readxl", "mapsf", "survey","srvyr",
                       "broom", "ggthemes", "ggrepel", "sjlabelled",
                       "ggplot2", "dplyr", "ggpubr", "sf", "viridis", "patchwork", 
-                      "raster", "wordcloud", "ggwordcloud")
+                      "raster", "wordcloud", "ggwordcloud", "terra", "plotly")
 
 
 read_install_pacakges <- function(packages = list_of_packages

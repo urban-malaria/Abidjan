@@ -1,11 +1,8 @@
 
 source("load_path.R", echo=FALSE) 
-source ("C:/Users/hp/Abidjan/load_path.R", echo=FALSE) #leave commented
+source("~/Abidjanf/load_path.R", echo=FALSE)
 
 RainfallPlus <- file.path(Climatedata, "Extracted_ClimeServ_CHIRPS_")
-
-install.packages("plotly")
-library(plotly)
 
 ##############################################################################################################################################################
 # RAINFALL
@@ -67,8 +64,6 @@ long_rainfall_data <- df_abidjan1 %>%
 
 # write.csv(long_rainfall_data, file.path(RainfallPlus, "all_daily_rainfall_data.csv"), row.names = FALSE)
 
-
-
 summerised_rainfall <- long_rainfall_data %>% 
   group_by(NOM, ID, year, month) %>% 
   mutate(monthly_rainfall = mean(value, na.rm = T)) %>% 
@@ -85,10 +80,7 @@ summerised_rainfall <- long_rainfall_data %>%
 # summerised_rainfall <-read.csv(file.path(RainfallPlus, "all_rainfall_data.csv"))
 
 
-
-
 rainfall_plottingdata <- inner_join(df_abidjan1, summerised_rainfall)
-
 
 
 ##########################################################################################
@@ -105,9 +97,6 @@ ggplot(data = df_abidjan1) +
   map_theme() 
 
 
-
-
-
 ggplot(data = df_abidjan1) +
   geom_sf(color = "black", fill = "white") +
   geom_sf(data = rainfall_plottingdata, aes(geometry = geometry, fill = overall_rainfall)) +
@@ -121,35 +110,70 @@ ggplot(data = df_abidjan1) +
 ##########################################################################
 
 summerised_rainfall <-read.csv(file.path(RainfallPlus, "all_rainfall_data.csv"))
+rainfall_data <- summerised_rainfall %>%
+  mutate(date = ymd(substr(variable, 2, 9)))
+rainfall_data <- rainfall_data %>%
+  drop_na()
+flood_data <-read.csv(file.path(AbidjanDir, "Flood list.csv"))
+flood_data$date <- ymd(paste(flood_data$year, flood_data$month, flood_data$day, sep = "-"))
 
-#plot time series with yearly rainfall
+#yearly rainfall and flood points
 
-ggplot(rainfall_data, aes(x = year, y = yearly_rainfall, color = NOM)) +
-  geom_line() +
+ggplot() +
+  geom_line(data = rainfall_data, aes(x = year, y = yearly_rainfall, color = NOM)) +
+  geom_point(data = flood_data, aes(x = year, y = Rainfall, shape = HealthDistrict), size =2)+ 
   scale_x_continuous(breaks = seq(min(rainfall_data$year), max(rainfall_data$year), by = 1)) +
   labs(title = "Rainfall Trend 2013-2023",
+       caption = "Highlighted points indicate rainfall amount resulting in floods in a specific regions", 
        x = "Year",
-       y = "Yearly Rainfall",
-       color = "Health District") +
-  map_theme()+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),  
-        axis.text.y = element_text(angle = 45, hjust = 1))
+       y = "Rainfall (inches)",
+       color = "Health District",
+       shape = "Flood locations") +
+   scale_shape_manual(values = c(0, 1, 2, 3, 4, 5, 6)) +  
+  theme_manuscript() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-#plot time series with monthly data
+#monthly rainfall
 
 rainfall_data$date <- as.Date(paste(rainfall_data$year, rainfall_data$month, "01", sep = "-"))
+month_labels <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-ggplot(rainfall_data, aes(x = date, y = monthly_rainfall, color = NOM)) +
+ggplot(rainfall_data, aes(x = month, y = monthly_rainfall, color = NOM)) +
   geom_line() +
-  scale_x_date(date_labels = "%b %Y", date_breaks = "6 month") +
-  #facet_wrap(~NOM)+  
-  labs(title = "Monthly Rainfall by Health District",
-       x = "Year",
-       y = "Average Monthly Rainfall",
+  geom_point(data = flood_data, aes(x = month, y = Rainfall, color = HealthDistrict), size = 2) + # comment to remove flood points
+  facet_wrap(~year)+
+  labs(title = "Rainfall in Abidjan 2013-2023",
+       x = "Month",
+       #y = "Average Monthly Rainfall",
+       y = "Rainfall (inches)",
+       caption = "Highlighted points indicate floods in a specific region",
        color = "Health District") +
-  map_theme()+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),  
-        axis.text.y = element_text(angle = 45, hjust = 1))
+  scale_x_continuous(breaks = 1:12, labels = month_labels)+
+  theme_manuscript()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+### individual plots of rainfall and plots through the year
+unique_years <- unique(rainfall_data$year)
+for (year_val in unique_years) {
+  # Subset data for the current year
+  subset_rainfall_data <- subset(rainfall_data, year == year_val)
+  subset_flood_data <- subset(flood_data, year == year_val)
+
+  plot <- ggplot(subset_rainfall_data, aes(x = month, y = monthly_rainfall, color = NOM)) +
+    geom_line() +
+    geom_point(data = subset_flood_data, aes(x = month, y = Rainfall, color = HealthDistrict), size = 2) + 
+    labs(title = paste("Rainfall in Abidjan", year_val),
+         x = "Month",
+         y = "Rainfall (inches)",
+         caption = "Highlighted points indicate floods in a specific region",
+         color = "Health District") +
+    scale_x_continuous(breaks = 1:12, labels = month_labels) +
+    theme_manuscript() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot)
+  
+}
 
 ##plot time series with daily rainfall data
 
@@ -176,28 +200,9 @@ plot_ly(rainfall_data, x = ~date, y = ~daily_rainfall, color = ~NOM, text = ~pas
          yaxis = list(title = "Rainfall"),
          hovermode = "closest")
 
+##Rainfall plot per district
 
-################ individual health districts plot with monthly data
-rainfall_data$date <- as.Date(paste(rainfall_data$year, rainfall_data$month, "01", sep = "-"))
-plots_folder <- file.path(plots, "Rainfall", "27-02-2024")
 
-health_districts <- unique(rainfall_data$NOM)
-for (district in health_districts) {
-  district_data <- subset(rainfall_data, NOM == district)
-  
-  plot <- ggplot(data = district_data, aes(x = date, y = monthly_rainfall)) +
-    geom_line() +
-    scale_x_date(date_labels = "%b %Y", date_breaks = "4 month") +
-    labs(title = paste("Rainfall Trends for", district),
-         x = "Date",
-         y = "Average Monthly Rainfall") +
-    map_theme()+
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),  
-          axis.text.y = element_text(angle = 45, hjust = 1))
-  print(plot)
-  #plot_filename <- paste0(plots_folder, "/", gsub("\\s", "_", district), "_rainfall_plot.png")
-  #ggsave(filename = plot_filename, plot = plot, width = 10, height = 6)
-}
 
 
 
